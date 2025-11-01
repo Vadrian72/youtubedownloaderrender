@@ -1,13 +1,20 @@
 {
-  "name": "youtube-mp3-render-downloader",
+  "name": "render-express-starter",
   "version": "1.0.0",
-  "description": "YouTube to MP3 Downloader on Render",
-  "main": "server.js",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.18 <21"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:dev": "NODE_ENV=development node server.js"
   },
   "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
     "express": "^4.19.2",
-    "ytdl-core": "^4.11.5"
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0"
   }
 }
