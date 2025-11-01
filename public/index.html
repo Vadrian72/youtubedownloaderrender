@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Server Render OK</title>
+    <style>
+      body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+      .card { max-width: 700px; border:1px solid #ddd; border-radius:12px; padding:16px; }
+      label { display:block; margin:.5rem 0 .25rem }
+      input, select, button { padding:.6rem; font-size:1rem }
+      pre { background:#f7f7f7; padding:1rem; border-radius:8px; overflow:auto }
+    </style>
+  </head>
+  <body>
+    <h1>Serverul tău e online 🚀</h1>
+    <div class="card">
+      <p>Testează endpoint-ul demo <code>/convert</code> (nu descarcă nimic, doar răspunde).</p>
+      <form id="f">
+        <label>URL</label>
+        <input id="url" type="url" placeholder="https://exemplu.tld" required />
+        <label>Format</label>
+        <select id="format">
+          <option>mp3</option><option>aac</option><option>wav</option><option>flac</option>
+        </select>
+        <div style="margin-top:.75rem"><button type="submit">Trimite</button></div>
+      </form>
+      <h3>Răspuns</h3>
+      <pre id="out">—</pre>
+    </div>
+    <script>
+      const f = document.getElementById('f'), out = document.getElementById('out');
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        out.textContent = 'Se trimite...';
+        const url = document.getElementById('url').value;
+        const format = document.getElementById('format').value;
+        const r = await fetch(`/convert?url=${encodeURIComponent(url)}&format=${encodeURIComponent(format)}`);
+        const data = await r.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      });
+    </script>
+  </body>
+</html>
