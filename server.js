@@ -1,16 +1,13 @@
-// server.js
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
+const path = require('path');
 
 const app = express();
+app.set('trust proxy', 1);
 
-// --- Setări generale
-app.set('trust proxy', 1); // Render/Heroku style proxies
-
-// --- Middleware de bază
 app.use(helmet());
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
@@ -18,67 +15,38 @@ app.use(express.urlencoded({ extended: false }));
 app.use(compression());
 app.use(morgan('combined'));
 
-// --- Health check pentru Render
-app.get('/healthz', (req, res) => {
-  res.status(200).send('ok');
-});
+// Health check pentru Render
+app.get('/healthz', (req, res) => res.status(200).send('ok'));
 
-// --- Root (info utilă)
+// Servește folderul /public ca site simplu
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Dacă vrei ca "/" să fie HTML, trimite index.html:
 app.get('/', (req, res) => {
-  res.status(200).json({
-    name: 'render-express-starter',
-    status: 'ok',
-    time: new Date().toISOString()
-  });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Endpoint STUB: /convert
-// ATENȚIE: acesta NU descarcă nimic și nu accesează servicii terțe.
-// E doar un exemplu de cum ai valida inputul și ai răspunde corect.
-app.get('/convert', async (req, res) => {
+// EXEMPLE DEMO (NU descarcă nimic)
+app.get('/convert', (req, res) => {
   const { url, format = 'mp3' } = req.query || {};
+  if (!url) return res.status(400).json({ error: 'Lipsește ?url=' });
+  if (!['mp3','aac','wav','flac'].includes(String(format).toLowerCase()))
+    return res.status(400).json({ error: 'Format invalid' });
 
-  // Validare minimală de input
-  if (!url || typeof url !== 'string') {
-    return res.status(400).json({
-      error: 'Parametrul "url" este obligatoriu.'
-    });
-  }
-
-  if (!['mp3', 'aac', 'wav', 'flac'].includes(String(format).toLowerCase())) {
-    return res.status(400).json({
-      error: 'Format invalid. Acceptat: mp3, aac, wav, flac.'
-    });
-  }
-
-  // Aici te-ai opri. Nu faci request la upstream.
-  // Returnezi un răspuns neutru ca exemplu.
   return res.status(501).json({
-    message: 'Funcționalitatea nu este implementată în acest demo.',
+    message: 'Demo — funcționalitatea nu e implementată aici.',
     received: { url, format }
   });
 });
 
-// --- Catch-all pentru rute inexistente (evită 410 confuz)
-app.use((req, res, next) => {
-  res.status(404).json({ error: 'Ruta nu există.' });
-});
+// 404
+app.use((req, res) => res.status(404).json({ error: 'Ruta nu există.' }));
 
-// --- Handler centralizat de erori
+// 500
 app.use((err, req, res, next) => {
-  console.error('Eroare neprevăzută:', err);
-  if (!res.headersSent) {
-    res.status(500).json({ error: 'Eroare internă.' });
-  }
+  console.error('Eroare:', err);
+  if (!res.headersSent) res.status(500).json({ error: 'Eroare internă.' });
 });
 
-// --- Pornire server
 const PORT = process.env.PORT || 3000;
-// Important: ascultă pe 0.0.0.0 pentru Render
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server pornit pe portul ${PORT}`);
-});
-
-// --- Timeout opțional (server-level), dacă vrei să fii mai strict
-// Notă: Express nu are timeout built-in pe route handlers.
-// Poți controla la nivel de platformă (Render are timeouts proprii).
+app.listen(PORT, '0.0.0.0', () => console.log(`Server pe ${PORT}`));
