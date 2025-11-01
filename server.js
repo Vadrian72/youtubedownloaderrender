@@ -1,50 +1,84 @@
+// server.js
 const express = require('express');
-const ytdl = require('ytdl-core');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const compression = require('compression');
+
 const app = express();
-// Render folosește variabila de mediu PORT. Dacă nu e setată, folosim 3000.
-const port = process.env.PORT || 3000;
 
-// Traseu simplu pentru verificare
+// --- Setări generale
+app.set('trust proxy', 1); // Render/Heroku style proxies
+
+// --- Middleware de bază
+app.use(helmet());
+app.use(cors({ origin: '*' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false }));
+app.use(compression());
+app.use(morgan('combined'));
+
+// --- Health check pentru Render
+app.get('/healthz', (req, res) => {
+  res.status(200).send('ok');
+});
+
+// --- Root (info utilă)
 app.get('/', (req, res) => {
-    res.send('Aplicația de descărcare YouTube este funcțională. Folosește /download?url=<URL_YOUTUBE> pentru a descărca.');
+  res.status(200).json({
+    name: 'render-express-starter',
+    status: 'ok',
+    time: new Date().toISOString()
+  });
 });
 
-// Traseul principal pentru descărcare
-app.get('/download', async (req, res) => {
-    const videoUrl = req.query.url;
+// --- Endpoint STUB: /convert
+// ATENȚIE: acesta NU descarcă nimic și nu accesează servicii terțe.
+// E doar un exemplu de cum ai valida inputul și ai răspunde corect.
+app.get('/convert', async (req, res) => {
+  const { url, format = 'mp3' } = req.query || {};
 
-    if (!videoUrl) {
-        return res.status(400).send('❌ Vă rugăm să furnizați un URL valid al videoclipului YouTube în parametrul "url".');
-    }
+  // Validare minimală de input
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({
+      error: 'Parametrul "url" este obligatoriu.'
+    });
+  }
 
-    try {
-        // Verifică dacă URL-ul este valid
-        if (!ytdl.validateURL(videoUrl)) {
-            return res.status(400).send('❌ URL-ul YouTube nu este valid.');
-        }
+  if (!['mp3', 'aac', 'wav', 'flac'].includes(String(format).toLowerCase())) {
+    return res.status(400).json({
+      error: 'Format invalid. Acceptat: mp3, aac, wav, flac.'
+    });
+  }
 
-        // Obține informații despre video pentru a crea un nume de fișier
-        const info = await ytdl.getInfo(videoUrl);
-        // Curăță titlul pentru a fi un nume de fișier valid (fără caractere speciale)
-        const sanitizedTitle = info.videoDetails.title.replace(/[^a-zA-Z0-9 ]/g, "").replace(/ /g, "_").substring(0, 50);
-        const fileName = `${sanitizedTitle}.mp3`;
-
-        // Setează header-ele pentru a forța descărcarea ca fișier MP3
-        res.header('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.header('Content-Type', 'audio/mpeg');
-
-        // Fluxul de descărcare: ia doar cel mai bun format audio și îl trimite direct
-        ytdl(videoUrl, {
-            filter: 'audioonly', // Extrage doar fluxul audio
-            quality: 'highestaudio',
-        }).pipe(res); // Trimite fluxul direct către răspunsul HTTP
-
-    } catch (error) {
-        console.error('Eroare la descărcare:', error.message);
-        res.status(500).send(`❌ A apărut o eroare la procesarea videoclipului: ${error.message}`);
-    }
+  // Aici te-ai opri. Nu faci request la upstream.
+  // Returnezi un răspuns neutru ca exemplu.
+  return res.status(501).json({
+    message: 'Funcționalitatea nu este implementată în acest demo.',
+    received: { url, format }
+  });
 });
 
-app.listen(port, () => {
-    console.log(`Serverul rulează pe portul ${port}`);
+// --- Catch-all pentru rute inexistente (evită 410 confuz)
+app.use((req, res, next) => {
+  res.status(404).json({ error: 'Ruta nu există.' });
 });
+
+// --- Handler centralizat de erori
+app.use((err, req, res, next) => {
+  console.error('Eroare neprevăzută:', err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Eroare internă.' });
+  }
+});
+
+// --- Pornire server
+const PORT = process.env.PORT || 3000;
+// Important: ascultă pe 0.0.0.0 pentru Render
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server pornit pe portul ${PORT}`);
+});
+
+// --- Timeout opțional (server-level), dacă vrei să fii mai strict
+// Notă: Express nu are timeout built-in pe route handlers.
+// Poți controla la nivel de platformă (Render are timeouts proprii).
